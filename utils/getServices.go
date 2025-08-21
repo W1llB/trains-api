@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/base64"
@@ -8,11 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"github.com/ncruces/go-strftime"
 )
 
 type Service struct {
@@ -126,106 +123,12 @@ type ServiceByRoute struct {
 	} `json:"services"`
 }
 
-type ServiceDetail struct {
-	ServiceUID           string `json:"serviceUid"`
-	RunDate              string `json:"runDate"`
-	ServiceType          string `json:"serviceType"`
-	IsPassenger          bool   `json:"isPassenger"`
-	TrainIdentity        string `json:"trainIdentity"`
-	PowerType            string `json:"powerType"`
-	TrainClass           string `json:"trainClass"`
-	AtocCode             string `json:"atocCode"`
-	AtocName             string `json:"atocName"`
-	PerformanceMonitored bool   `json:"performanceMonitored"`
-	Origin               []struct {
-		Tiploc      string `json:"tiploc"`
-		Description string `json:"description"`
-		WorkingTime string `json:"workingTime"`
-		PublicTime  string `json:"publicTime"`
-	} `json:"origin"`
-	Destination []struct {
-		Tiploc      string `json:"tiploc"`
-		Description string `json:"description"`
-		WorkingTime string `json:"workingTime"`
-		PublicTime  string `json:"publicTime"`
-	} `json:"destination"`
-	Locations []struct {
-		RealtimeActivated   bool   `json:"realtimeActivated"`
-		Tiploc              string `json:"tiploc"`
-		Crs                 string `json:"crs"`
-		Description         string `json:"description"`
-		GbttBookedDeparture string `json:"gbttBookedDeparture,omitempty"`
-		Origin              []struct {
-			Tiploc      string `json:"tiploc"`
-			Description string `json:"description"`
-			WorkingTime string `json:"workingTime"`
-			PublicTime  string `json:"publicTime"`
-		} `json:"origin"`
-		Destination []struct {
-			Tiploc      string `json:"tiploc"`
-			Description string `json:"description"`
-			WorkingTime string `json:"workingTime"`
-			PublicTime  string `json:"publicTime"`
-		} `json:"destination"`
-		IsCall                  bool   `json:"isCall"`
-		IsPublicCall            bool   `json:"isPublicCall"`
-		RealtimeDeparture       string `json:"realtimeDeparture,omitempty"`
-		RealtimeDepartureActual bool   `json:"realtimeDepartureActual,omitempty"`
-		Platform                string `json:"platform"`
-		PlatformConfirmed       bool   `json:"platformConfirmed"`
-		PlatformChanged         bool   `json:"platformChanged"`
-		Line                    string `json:"line,omitempty"`
-		LineConfirmed           bool   `json:"lineConfirmed,omitempty"`
-		DisplayAs               string `json:"displayAs"`
-		GbttBookedArrival       string `json:"gbttBookedArrival,omitempty"`
-		RealtimeArrival         string `json:"realtimeArrival,omitempty"`
-		RealtimeArrivalActual   bool   `json:"realtimeArrivalActual,omitempty"`
-		ServiceLocation         string `json:"serviceLocation,omitempty"`
-		Path                    string `json:"path,omitempty"`
-		PathConfirmed           bool   `json:"pathConfirmed,omitempty"`
-	} `json:"locations"`
-	RealtimeActivated bool   `json:"realtimeActivated"`
-	RunningIdentity   string `json:"runningIdentity"`
-}
-
-func main() {
-	getURI()
-	router := gin.Default()
-	router.Use(CORSMiddleware())
-	router.GET("/services/:station", getServicesByDestination)
-	router.GET("/services/:station/to/:toStation", getServicesByRoute)
-	router.Run("localhost:8080")
-}
-
-func CORSMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	}
-}
-
-func getURI() {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
-	}
-}
-
 func basicAuth(username, password string) string {
 	auth := username + ":" + password
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func getServicesByDestination(c *gin.Context) {
+func GetServiceByDestination(c *gin.Context) {
 	baseURL := os.Getenv("REALTIME_TRAINS_URI")
 	username := os.Getenv("TRAINS_USERNAME")
 	password := os.Getenv("PASSWORD")
@@ -261,7 +164,7 @@ func getServicesByDestination(c *gin.Context) {
 
 }
 
-func getServicesByRoute(c *gin.Context) {
+func GetServiceByRoute(c *gin.Context) {
 	baseURL := os.Getenv("REALTIME_TRAINS_URI")
 	username := os.Getenv("TRAINS_USERNAME")
 	password := os.Getenv("PASSWORD")
@@ -292,48 +195,7 @@ func getServicesByRoute(c *gin.Context) {
 	error1 := json.Unmarshal([]byte(body), &currServices)
 	if error1 != nil {
 		fmt.Println("Error decoding JSON:", err)
+		return
 	}
-	servicesList := currServices.Services
-	detailedServicesList := []ServiceDetail{}
-	for i := 0; i < len(servicesList); i++ {
-		detailedServicesList = append(detailedServicesList, getServiceDetail(servicesList[i].ServiceUID))
-	}
-	fmt.Println(detailedServicesList)
-	c.IndentedJSON(http.StatusOK, detailedServicesList)
-}
-
-func getServiceDetail(serviceUid string) ServiceDetail {
-
-	baseURL := os.Getenv("REALTIME_TRAINS_URI")
-	username := os.Getenv("TRAINS_USERNAME")
-	password := os.Getenv("PASSWORD")
-	// now, timeError := time.Parse("01/02/2006", time.Now().String())
-
-	client := &http.Client{}
-	req, err1 := http.NewRequest("GET", baseURL+"json/service/"+serviceUid+"/"+strftime.Format("%Y/%m/%d", time.Now()), nil)
-	if err1 != nil {
-		fmt.Println(err1)
-
-		panic(err1)
-	}
-	req.Header.Add("Authorization", "Basic "+basicAuth(username, password))
-	fmt.Println(req.URL)
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading body:", err)
-		// c.IndentedJSON(resp.StatusCode, err.Error())
-	}
-
-	var detailedService ServiceDetail
-	error1 := json.Unmarshal([]byte(body), &detailedService)
-	if error1 != nil {
-		fmt.Println("Error decoding JSON:", error1)
-	}
-	return detailedService
-
+	c.IndentedJSON(http.StatusOK, currServices)
 }
