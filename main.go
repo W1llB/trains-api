@@ -195,7 +195,7 @@ func main() {
 	router.Use(CORSMiddleware())
 	router.GET("/services/:station", getServicesByDestination)
 	router.GET("/services/:station/to/:toStation", getServicesByRoute)
-	router.Run("localhost:8080")
+	router.Run()
 }
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -339,7 +339,7 @@ func getServiceDetail(serviceUid string) ServiceDetail {
 		panic(err1)
 	}
 	req.Header.Add("Authorization", "Basic "+basicAuth(username, password))
-	fmt.Println(req.URL)
+	fmt.Println(req.Header.Get("Authorization"))
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)
