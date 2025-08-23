@@ -236,10 +236,7 @@ func ErrorHandler() gin.HandlerFunc {
 }
 
 func getURI() {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
-	}
+	godotenv.Load()
 }
 
 func basicAuth(username, password string) string {
