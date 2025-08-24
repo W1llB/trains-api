@@ -1,6 +1,8 @@
 module train-times/trains_api/utils
 
-go 1.23.5
+go 1.21.0
+
+toolchain go1.22.2
 
 require github.com/gin-gonic/gin v1.10.0
 
